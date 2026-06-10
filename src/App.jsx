@@ -34,8 +34,14 @@ function App() {
       if (githubToken && gistId) {
         setIsSyncing(true);
         const cloudDeck = await fetchFromCloud();
-        if (cloudDeck) {
+        // If cloud has data, pull it
+        if (cloudDeck && cloudDeck.length > 0) {
           setDeck(cloudDeck);
+          setLastSync(new Date().toLocaleTimeString());
+        } 
+        // If cloud is completely empty but local has data, push local to cloud
+        else if (cloudDeck && cloudDeck.length === 0 && deck.length > 0) {
+          await syncToCloud(deck);
           setLastSync(new Date().toLocaleTimeString());
         }
         setIsSyncing(false);
