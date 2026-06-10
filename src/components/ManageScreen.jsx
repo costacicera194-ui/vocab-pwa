@@ -76,22 +76,22 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
   };
 
   const handleResetWeight = (id) => {
-    const newDeck = deck.map(c => c.id === id ? { ...c, weight: 100 } : c);
+    const newDeck = deck.map(c => c.id === id ? { ...c, weight: 10 } : c);
     onUpdateDeck(newDeck);
   };
 
   const handleEditWeight = (id, oldWeight) => {
-    const val = prompt("Enter new weight (1-1000):", oldWeight);
+    const val = prompt("Enter new weight (1-100):", oldWeight);
     if (val !== null && !isNaN(val) && val.trim() !== '') {
-      const newWeight = Math.max(1, Math.min(1000, parseInt(val)));
+      const newWeight = Math.max(1, Math.min(100, parseInt(val)));
       const newDeck = deck.map(c => c.id === id ? { ...c, weight: newWeight } : c);
       onUpdateDeck(newDeck);
     }
   };
 
   const handleResetAllWeights = () => {
-    if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 100. Your study progress (what you know and don't know) will be lost!")) {
-      const newDeck = deck.map(c => ({ ...c, weight: 100 }));
+    if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 10. Your study progress (what you know and don't know) will be lost!")) {
+      const newDeck = deck.map(c => ({ ...c, weight: 10 }));
       onUpdateDeck(newDeck);
     }
   };
@@ -205,12 +205,12 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weight</span>
-                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '1.1rem' }}>{card.weight || 100}</span>
+                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '1.1rem' }}>{card.weight || 10}</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
-                      onClick={() => handleEditWeight(card.id, card.weight || 100)}
+                      onClick={() => handleEditWeight(card.id, card.weight || 10)}
                       style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: 'var(--text-secondary)' }}
                     >
                       <Edit2 size={16} />
