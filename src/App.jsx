@@ -56,13 +56,13 @@ function App() {
     localStorage.setItem('vocab_deck', JSON.stringify(deck));
     
     const timer = setTimeout(async () => {
-      if (githubToken && gistId && deck.length > 0) {
+      if (githubToken && gistId) {
         setIsSyncing(true);
         const success = await syncToCloud(deck);
         if (success) setLastSync(new Date().toLocaleTimeString());
         setIsSyncing(false);
       }
-    }, 2000); 
+    }, 1000); 
 
     return () => clearTimeout(timer);
   }, [deck, githubToken, gistId]);
