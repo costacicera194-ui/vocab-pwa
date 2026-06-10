@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { initCard } from '../utils/engine';
-import { ArrowLeft, Trash2, Star, List } from 'lucide-react';
+import { ArrowLeft, Trash2, Star, List, Settings2, RotateCcw, Edit2 } from 'lucide-react';
 
 export default function ManageScreen({ deck, onSave, onBack }) {
   const [filterFavorites, setFilterFavorites] = useState(false);
+  const [showWeights, setShowWeights] = useState(false);
   const [text, setText] = useState('');
 
-  // We need to keep a reference to the global deck to not lose un-filtered cards
-  // when saving a filtered view.
-  
+  const activeDeck = filterFavorites ? deck.filter(c => c.isStarred) : deck;
+
   useEffect(() => {
-    const activeDeck = filterFavorites ? deck.filter(c => c.isStarred) : deck;
     const rawText = activeDeck.map(card => {
       if (card.translation === '待查') return card.word;
       return `${card.word}\t${card.translation}`;
@@ -19,7 +18,7 @@ export default function ManageScreen({ deck, onSave, onBack }) {
     setText(rawText);
   }, [deck, filterFavorites]);
 
-  const handleSave = () => {
+  const handleSaveText = () => {
     const lines = text.split('\n');
     const updatedCards = [];
     const updatedCardIds = new Set();
@@ -53,7 +52,6 @@ export default function ManageScreen({ deck, onSave, onBack }) {
           translation,
           ...initCard()
         };
-        // If we are adding a card while in favorites view, should it be starred?
         if (filterFavorites) newCard.isStarred = true;
         updatedCards.push(newCard);
       }
@@ -61,8 +59,6 @@ export default function ManageScreen({ deck, onSave, onBack }) {
 
     let newDeck;
     if (filterFavorites) {
-      // If we only edited favorites, we keep all non-starred cards intact,
-      // and merge in our updatedCards.
       const nonStarredCards = deck.filter(c => !c.isStarred);
       newDeck = [...nonStarredCards, ...updatedCards];
     } else {
@@ -75,6 +71,28 @@ export default function ManageScreen({ deck, onSave, onBack }) {
   const handleClear = () => {
     if (window.confirm(filterFavorites ? "Are you sure you want to remove all favorites?" : "Are you sure you want to clear the entire deck?")) {
       setText('');
+      // We don't automatically save on clear to prevent accidental wipes until they click Save.
+    }
+  };
+
+  const handleResetWeight = (id) => {
+    const newDeck = deck.map(c => c.id === id ? { ...c, weight: 100 } : c);
+    onSave(newDeck);
+  };
+
+  const handleEditWeight = (id, oldWeight) => {
+    const val = prompt("Enter new weight (1-1000):", oldWeight);
+    if (val !== null && !isNaN(val) && val.trim() !== '') {
+      const newWeight = Math.max(1, Math.min(1000, parseInt(val)));
+      const newDeck = deck.map(c => c.id === id ? { ...c, weight: newWeight } : c);
+      onSave(newDeck);
+    }
+  };
+
+  const handleResetAllWeights = () => {
+    if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 100. Your study progress (what you know and don't know) will be lost!")) {
+      const newDeck = deck.map(c => ({ ...c, weight: 100 }));
+      onSave(newDeck);
     }
   };
 
@@ -89,9 +107,19 @@ export default function ManageScreen({ deck, onSave, onBack }) {
         <button onClick={onBack} style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '1rem', padding: 0 }}>
           <ArrowLeft size={20} /> Back
         </button>
-        <button onClick={handleClear} style={{ color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.2s' }} onMouseOver={e => e.currentTarget.style.color = 'var(--danger-color)'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-tertiary)'}>
-          <Trash2 size={20} />
-        </button>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <button 
+            onClick={() => setShowWeights(!showWeights)} 
+            style={{ color: showWeights ? '#4f46e5' : 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.2s', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Settings2 size={20} /> <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{showWeights ? 'Editor' : 'Weights'}</span>
+          </button>
+          {!showWeights && (
+            <button onClick={handleClear} style={{ color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.2s' }} onMouseOver={e => e.currentTarget.style.color = 'var(--danger-color)'} onMouseOut={e => e.currentTarget.style.color = 'var(--text-tertiary)'}>
+              <Trash2 size={20} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -113,40 +141,93 @@ export default function ManageScreen({ deck, onSave, onBack }) {
         </div>
       </div>
       
-      <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-        {filterFavorites ? 'Editing starred words only.' : 'Raw text editing. One word per line, followed by its translation.'}
-      </p>
+      {!showWeights ? (
+        <>
+          <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {filterFavorites ? 'Editing starred words only.' : 'Raw text editing. One word per line, followed by its translation.'}
+          </p>
 
-      <textarea
-        style={{ 
-          flex: 1, 
-          width: '100%', 
-          padding: '20px', 
-          borderRadius: '16px', 
-          border: '1px solid var(--border-color)', 
-          outline: 'none',
-          resize: 'none',
-          fontFamily: 'monospace',
-          fontSize: '1rem',
-          background: 'var(--panel-bg)',
-          lineHeight: 1.6,
-          color: 'var(--text-primary)',
-          transition: 'border-color 0.2s'
-        }}
-        onFocus={e => e.currentTarget.style.borderColor = 'var(--text-tertiary)'}
-        onBlur={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
-        placeholder="apple 苹果&#10;abandon 放弃"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+          <textarea
+            style={{ 
+              flex: 1, 
+              width: '100%', 
+              padding: '20px', 
+              borderRadius: '16px', 
+              border: '1px solid var(--border-color)', 
+              outline: 'none',
+              resize: 'none',
+              fontFamily: 'monospace',
+              fontSize: '1rem',
+              background: 'var(--panel-bg)',
+              lineHeight: 1.6,
+              color: 'var(--text-primary)',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={e => e.currentTarget.style.borderColor = 'var(--text-tertiary)'}
+            onBlur={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+            placeholder="apple 苹果&#10;abandon 放弃"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
 
-      <button
-        onClick={handleSave}
-        className="btn-primary"
-        style={{ marginTop: '1.5rem', padding: '1.25rem', fontSize: '1.1rem', borderRadius: '16px' }}
-      >
-        Save & Overwrite ({text.split('\n').filter(l => l.trim()).length} words)
-      </button>
+          <button
+            onClick={handleSaveText}
+            className="btn-primary"
+            style={{ marginTop: '1.5rem', padding: '1.25rem', fontSize: '1.1rem', borderRadius: '16px' }}
+          >
+            Save & Overwrite ({text.split('\n').filter(l => l.trim()).length} words)
+          </button>
+        </>
+      ) : (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Weight Editor: Higher weight = appears more often.
+            </p>
+            <button 
+              onClick={handleResetAllWeights}
+              style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Reset All Weights
+            </button>
+          </div>
+          
+          <div style={{ flex: 1, overflowY: 'auto', background: '#fafafa', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            {activeDeck.map(card => (
+              <div key={card.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border-color)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {card.word} {card.isStarred && <Star fill="#fbbf24" color="#fbbf24" size={14} />}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{card.translation}</div>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weight</span>
+                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '1.1rem' }}>{card.weight || 100}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => handleEditWeight(card.id, card.weight || 100)}
+                      style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleResetWeight(card.id)}
+                      style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                    >
+                      <RotateCcw size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
