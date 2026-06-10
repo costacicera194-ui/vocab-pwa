@@ -26,7 +26,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
     setShowOriginalTranslation(false);
     setTranslatedWord(null);
     setTranslationText('');
-    const context = await generateSentence(currentCard.word);
+    const context = await generateSentence(currentCard.word, currentCard.translation);
     setSentence(context);
     setLoadingSentence(false);
   };

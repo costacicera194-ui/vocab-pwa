@@ -12,11 +12,10 @@ export const fetchTranslation = async (word) => {
 };
 
 // Real LLM Sentence Generation
-export const generateSentence = async (word) => {
+export const generateSentence = async (word, meaning) => {
   const apiKey = localStorage.getItem('ai_api_key');
   
   if (!apiKey || !apiKey.trim()) {
-    // Fallback logic if API key is not set
     return `(未配置API Key) The postgraduate entrance exam requires you to understand the word '${word}'.`;
   }
 
@@ -32,11 +31,11 @@ export const generateSentence = async (word) => {
         messages: [
           {
             role: "system",
-            content: "你是一个考研英语真题数据库。请从历年中国研究生入学考试（考研）英语一或英语二的真实考试题目（如阅读理解、翻译、完形填空）原文中，精确检索并提取出一句包含单词的用户指定的词语的真实考试原句。绝不能自己编造！只输出这句纯英文原句，不要包含任何年份标注、中文翻译、解释或多余的废话。"
+            content: `你是一个考研英语真题数据库。请从历年中国研究生入学考试（考研）英语一或英语二的真实考试题目中，提取出一句包含特定单词的真实考试原句。\n重要限制：该单词在这句话中的词义，必须贴近或等同于用户提供的中文释义！\n绝不能自己编造！只输出这句纯英文原句，不要包含任何年份标注、中文翻译、解释或多余的废话。`
           },
           {
             role: "user",
-            content: `单词：${word}`
+            content: `单词：${word}\n限定释义：${meaning}`
           }
         ]
       })
