@@ -36,9 +36,15 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
     if (!cleanWord) return;
     
     setTranslatedWord(cleanWord);
-    setTranslationText('Loading...');
-    const result = await fetchTranslation(cleanWord);
-    setTranslationText(result || 'No definition found.');
+    setTranslationText({ context: '正在分析语境...', others: '' });
+    const result = await fetchTranslation(cleanWord, sentence);
+    
+    if (result && result.includes('___')) {
+      const [ctxMeaning, othMeaning] = result.split('___');
+      setTranslationText({ context: ctxMeaning, others: othMeaning });
+    } else {
+      setTranslationText({ context: result || '未找到释义', others: '' });
+    }
   };
 
   const handleAnswer = (quality) => {
@@ -130,7 +136,16 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
             {translatedWord && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'var(--panel-bg)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', textAlign: 'center', maxWidth: '90%' }}>
                 <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{translatedWord}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{translationText}</div>
+                <div style={{ fontSize: '0.95rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {typeof translationText === 'string' ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>{translationText}</span>
+                  ) : (
+                    <>
+                      <span style={{ color: '#4f46e5', fontWeight: 600 }}>{translationText.context}</span>
+                      {translationText.others && <span style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>其他: {translationText.others}</span>}
+                    </>
+                  )}
+                </div>
               </motion.div>
             )}
           </div>

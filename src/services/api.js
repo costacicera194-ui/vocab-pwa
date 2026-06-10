@@ -1,13 +1,38 @@
-// Dictionary lookup
-export const fetchTranslation = async (word) => {
+// Contextual Translation lookup using LLM
+export const fetchTranslation = async (word, sentence) => {
+  const apiKey = localStorage.getItem('ai_api_key');
+  if (!apiKey || !apiKey.trim()) {
+    return "请先配置 API Key 以启用考研语境翻译。";
+  }
+
   try {
-    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data[0]?.meanings[0]?.definitions[0]?.definition || "暂无翻译";
+    const response = await fetch(`https://api.deepseek.com/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: "你是一个考研英语词汇专家。请结合给定的句子，给出该单词在句中的精准中文释义，以及它在考研中其他的常见中文释义。必须严格按照以下格式返回（不要包含任何额外废话，用三个下划线作为分隔符）：\n在此句中的含义___其他考研常见含义（用逗号隔开）"
+          },
+          {
+            role: "user",
+            content: `原句：${sentence}\n被查单词：${word}`
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) return "查询失败，请检查网络或密钥。";
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
   } catch (error) {
     console.error(error);
-    return null;
+    return "翻译服务暂时不可用。";
   }
 };
 
