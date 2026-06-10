@@ -76,7 +76,7 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
   };
 
   const handleResetWeight = (id) => {
-    const newDeck = deck.map(c => c.id === id ? { ...c, weight: 10 } : c);
+    const newDeck = deck.map(c => c.id === id ? { ...c, weight: 50 } : c);
     onUpdateDeck(newDeck);
   };
 
@@ -90,8 +90,8 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
   };
 
   const handleResetAllWeights = () => {
-    if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 10. Your study progress (what you know and don't know) will be lost!")) {
-      const newDeck = deck.map(c => ({ ...c, weight: 10 }));
+    if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 50. Your study progress (what you know and don't know) will be lost!")) {
+      const newDeck = deck.map(c => ({ ...c, weight: 50 }));
       onUpdateDeck(newDeck);
     }
   };
@@ -205,12 +205,12 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Weight</span>
-                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '1.1rem' }}>{card.weight || 10}</span>
+                    <span style={{ fontWeight: 700, color: '#4f46e5', fontSize: '1.1rem' }}>{card.weight || 50}</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
-                      onClick={() => handleEditWeight(card.id, card.weight || 10)}
+                      onClick={() => handleEditWeight(card.id, card.weight || 50)}
                       style={{ background: 'none', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: 'var(--text-secondary)' }}
                     >
                       <Edit2 size={16} />
