@@ -65,11 +65,11 @@ function App() {
                 <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} color="var(--text-tertiary)" /></button>
               </div>
               <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                Enter your Google Gemini API Key to enable contextual sentence generation.
+                Enter your DeepSeek API Key to enable contextual sentence generation without a VPN.
               </p>
               <input 
                 type="password"
-                placeholder="AIzaSy..."
+                placeholder="sk-..."
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 style={{ width: '100%', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '1.5rem', outline: 'none', fontSize: '1rem', background: '#fafafa' }}
