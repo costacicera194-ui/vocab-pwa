@@ -31,7 +31,8 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     if (currentCard) {
       loadContext();
     }
-  }, [currentCard]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCard?.id]);
 
   const loadContext = async () => {
     setLoadingSentence(true);
@@ -137,7 +138,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
             </h1>
             <button 
               onClick={toggleStar} 
-              style={{ position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', color: currentCard.isStarred ? '#fbbf24' : 'var(--border-color)', transition: 'color 0.2s' }}
+              style={{ position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', color: currentCard.isStarred ? '#fbbf24' : '#9ca3af', transition: 'color 0.2s' }}
             >
               <Star fill={currentCard.isStarred ? '#fbbf24' : 'none'} size={28} />
             </button>
