@@ -1,20 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSentence, fetchTranslation } from '../services/api';
-import { calculateNextReview } from '../utils/sm2';
-import { ArrowLeft, Check, X as XIcon } from 'lucide-react';
+import { getWeightedRandomCard, updateCardWeight } from '../utils/engine';
+import { ArrowLeft, Check, X as XIcon, Star } from 'lucide-react';
 
-export default function FlashcardScreen({ deck, updateDeck, onBack }) {
+export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavorites }) {
+  const [activeDeck, setActiveDeck] = useState(filterFavorites ? deck.filter(c => c.isStarred) : deck);
+  const [currentCard, setCurrentCard] = useState(() => getWeightedRandomCard(activeDeck));
+  
   const [sentence, setSentence] = useState('');
   const [loadingSentence, setLoadingSentence] = useState(false);
   const [translatedWord, setTranslatedWord] = useState(null);
   const [translationText, setTranslationText] = useState('');
   const [showOriginalTranslation, setShowOriginalTranslation] = useState(false);
 
-  // Filter cards due for review
-  const dueCards = deck.filter(card => card.nextReview <= Date.now());
-  const currentCard = dueCards[0];
+  useEffect(() => {
+    // Only re-sync if the filter mode changes. Otherwise, we manage it locally during review.
+    const filtered = filterFavorites ? deck.filter(c => c.isStarred) : deck;
+    setActiveDeck(filtered);
+    // If currentCard is missing from filtered deck (e.g., they unstarred it and left), grab a new one
+    if (currentCard && !filtered.find(c => c.id === currentCard.id)) {
+      setCurrentCard(getWeightedRandomCard(filtered));
+    } else if (!currentCard) {
+      setCurrentCard(getWeightedRandomCard(filtered));
+    }
+  }, [filterFavorites]);
 
+  // Load context whenever currentCard changes
   useEffect(() => {
     if (currentCard) {
       loadContext();
@@ -32,7 +44,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
   };
 
   const handleWordClick = async (rawWord) => {
-    const cleanWord = rawWord.replace(/[^a-zA-Z]/g, '');
+    const cleanWord = rawWord.replace(/[^a-zA-Z\-]/g, '');
     if (!cleanWord) return;
     
     setTranslatedWord(cleanWord);
@@ -47,24 +59,49 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
     }
   };
 
-  const handleAnswer = (quality) => {
+  const handleAnswer = (isKnown) => {
     if (!currentCard) return;
     
-    const updatedCard = { ...currentCard, ...calculateNextReview(currentCard, quality) };
+    const updatedCard = updateCardWeight(currentCard, isKnown);
     
-    // Update the master deck, automatically advancing the queue
+    // Update global deck
     const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
     updateDeck(newDeck);
+    
+    // Select next card based on new weights
+    const newActiveDeck = filterFavorites ? newDeck.filter(c => c.isStarred) : newDeck;
+    setActiveDeck(newActiveDeck);
+    
+    // Pick the next card
+    let nextCard = getWeightedRandomCard(newActiveDeck);
+    // Try to avoid showing the exact same card twice in a row if there are other options
+    if (nextCard && nextCard.id === updatedCard.id && newActiveDeck.length > 1) {
+       // Just pick again, probabilistically it's likely a different one, or we explicitly force it
+       nextCard = getWeightedRandomCard(newActiveDeck.filter(c => c.id !== updatedCard.id));
+    }
+    setCurrentCard(nextCard);
   };
 
-  if (dueCards.length === 0) {
+  const toggleStar = () => {
+    if (!currentCard) return;
+    const updatedCard = { ...currentCard, isStarred: !currentCard.isStarred };
+    
+    // Update global deck
+    const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
+    updateDeck(newDeck);
+    
+    // Update local card immediately for UI
+    setCurrentCard(updatedCard);
+    
+    // If we are in favorites mode and they unstar, we keep it visible until they flip the card.
+    // It will drop out naturally on handleAnswer.
+  };
+
+  if (!activeDeck || activeDeck.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '24px' }}>
-        <div style={{ background: 'var(--border-color)', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-          <Check size={32} color="var(--text-primary)" />
-        </div>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: '8px' }}>All caught up</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>You have no more words to review right now.</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: '8px' }}>Empty List</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>{filterFavorites ? "You haven't starred any words yet." : "Your deck is empty."}</p>
         <button className="btn-secondary" onClick={onBack} style={{ width: '100%', borderRadius: '16px' }}>Return Home</button>
       </div>
     );
@@ -81,7 +118,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
           <ArrowLeft size={20} />
         </button>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600 }}>
-          {dueCards.length} left
+          {filterFavorites ? 'Favorites' : 'Infinite Mode'}
         </span>
       </div>
 
@@ -94,10 +131,16 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
           transition={{ duration: 0.3 }}
           style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
         >
-          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '3rem', position: 'relative' }}>
             <h1 style={{ fontSize: '3.5rem', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-primary)', margin: 0 }}>
               {currentCard.word}
             </h1>
+            <button 
+              onClick={toggleStar} 
+              style={{ position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', color: currentCard.isStarred ? '#fbbf24' : 'var(--border-color)', transition: 'color 0.2s' }}
+            >
+              <Star fill={currentCard.isStarred ? '#fbbf24' : 'none'} size={28} />
+            </button>
           </div>
 
           <div style={{ padding: '0 12px', marginBottom: '2rem' }}>
@@ -106,7 +149,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
             ) : (
               <p style={{ fontSize: '1.4rem', lineHeight: 1.6, color: 'var(--text-primary)', textAlign: 'center', fontWeight: 500 }}>
                 {sentence.split(' ').map((w, i) => {
-                  const cleanW = w.replace(/[^a-zA-Z]/g, '');
+                  const cleanW = w.replace(/[^a-zA-Z\-]/g, '');
                   const isTarget = cleanW.toLowerCase() === currentCard.word.toLowerCase();
                   return (
                     <span 
@@ -171,7 +214,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: '12px', paddingTop: '24px' }}>
         <button 
-          onClick={() => handleAnswer(1)}
+          onClick={() => handleAnswer(false)}
           style={{ flex: 1, padding: '24px', background: 'var(--panel-bg)', border: '1px solid var(--border-color)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'background 0.2s' }}
           onMouseOver={e => e.currentTarget.style.background = '#f9f9f9'}
           onMouseOut={e => e.currentTarget.style.background = 'var(--panel-bg)'}
@@ -179,7 +222,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
           <XIcon color="var(--text-tertiary)" size={28} />
         </button>
         <button 
-          onClick={() => handleAnswer(4)}
+          onClick={() => handleAnswer(true)}
           style={{ flex: 1, padding: '24px', background: 'var(--text-primary)', border: '1px solid var(--text-primary)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'opacity 0.2s' }}
           onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
           onMouseOut={e => e.currentTarget.style.opacity = '1'}
