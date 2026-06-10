@@ -24,7 +24,11 @@ export const calculateNextReview = (card, quality) => {
   ef = ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (ef < 1.3) ef = 1.3;
 
-  const nextReview = Date.now() + i * 24 * 60 * 60 * 1000;
+  // If quality < 3 (don't know), set review time to 10 minutes from now
+  // Otherwise, set to i days from now
+  const nextReview = quality < 3 
+    ? Date.now() + 10 * 60 * 1000 
+    : Date.now() + i * 24 * 60 * 60 * 1000;
   
   return { n, ef, i, nextReview };
 };

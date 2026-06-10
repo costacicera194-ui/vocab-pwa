@@ -5,7 +5,6 @@ import { calculateNextReview } from '../utils/sm2';
 import { BookOpen, CheckCircle, XCircle } from 'lucide-react';
 
 export default function FlashcardScreen({ deck, updateDeck, onBack }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [sentence, setSentence] = useState('');
   const [loadingSentence, setLoadingSentence] = useState(false);
   const [translatedWord, setTranslatedWord] = useState(null);
@@ -14,7 +13,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
 
   // Filter cards due for review
   const dueCards = deck.filter(card => card.nextReview <= Date.now());
-  const currentCard = dueCards[currentIndex];
+  const currentCard = dueCards[0];
 
   useEffect(() => {
     if (currentCard) {
@@ -49,21 +48,10 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
     const updatedCard = { ...currentCard, ...calculateNextReview(currentCard, quality) };
     
     // Update the master deck
+    // Since currentCard is always dueCards[0], updating the deck will automatically 
+    // remove the card from dueCards (if nextReview > now) and the next card will slide in!
     const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
     updateDeck(newDeck);
-    
-    // Move to next due card
-    // Wait a tiny bit for UI animation
-    setTimeout(() => {
-      // In a real app we'd recalculate dueCards or just increment index
-      // Since we updated the deck, we let the parent re-render or we just move index
-      if (currentIndex + 1 < dueCards.length) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        // Force refresh dueCards by relying on parent state update
-        setCurrentIndex(0); 
-      }
-    }, 300);
   };
 
   if (dueCards.length === 0) {
@@ -86,7 +74,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={onBack} style={{ color: 'var(--text-secondary)' }}>← 返回</button>
         <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          待复习: {dueCards.length - currentIndex} / {dueCards.length}
+          剩余待复习: {dueCards.length} 词
         </span>
       </div>
 
