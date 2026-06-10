@@ -61,10 +61,22 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     // Parse English and Chinese parts
     if (context.includes('---')) {
       const parts = context.split('---');
-      setSentenceEn(parts[0].trim());
-      setSentenceZh(parts[1].trim());
+      setSentenceEn(parts[0].replace(/\*\*/g, '').trim());
+      
+      let zh = parts[1].trim();
+      // Fallback: If LLM forgot to add ** and translation exists
+      if (!zh.includes('**') && currentCard.translation !== '待查') {
+        const meanings = currentCard.translation.split(/[,，;；\s]+/).filter(Boolean);
+        for (const m of meanings) {
+          if (zh.includes(m)) {
+            zh = zh.replace(new RegExp(m, 'g'), `**${m}**`);
+            break;
+          }
+        }
+      }
+      setSentenceZh(zh);
     } else {
-      setSentenceEn(context.trim());
+      setSentenceEn(context.replace(/\*\*/g, '').trim());
       setSentenceZh('');
     }
     
@@ -155,10 +167,10 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
           animate={{ opacity: 1, filter: 'blur(0px)' }}
           exit={{ opacity: 0, filter: 'blur(4px)' }}
           transition={{ duration: 0.3 }}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', overflowY: 'auto', minHeight: 0, paddingBottom: '20px' }}
         >
           {/* Top Word Section - Fixed Min Height to prevent jumping */}
-          <div style={{ minHeight: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', marginBottom: '2rem', position: 'relative' }}>
+          <div style={{ minHeight: '100px', flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', marginBottom: '1.5rem', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', width: '100%' }}>
               <h1 style={{ fontSize: '3.5rem', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-primary)', margin: 0 }}>
                 {currentCard.word}
@@ -255,7 +267,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
       </AnimatePresence>
 
       {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '12px', paddingTop: '12px' }}>
+      <div style={{ display: 'flex', gap: '12px', paddingTop: '12px', flexShrink: 0 }}>
         {answerStep === 1 ? (
           <>
             <button 

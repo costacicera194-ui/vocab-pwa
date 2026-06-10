@@ -88,7 +88,7 @@ function App() {
   };
 
   if (currentView === 'manage') {
-    return <ManageScreen deck={deck} onSave={handleSaveDeck} onBack={() => setCurrentView('home')} />;
+    return <ManageScreen deck={deck} onSave={handleSaveDeck} onUpdateDeck={setDeck} onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'flashcard') {

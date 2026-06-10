@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { initCard } from '../utils/engine';
 import { ArrowLeft, Trash2, Star, List, Settings2, RotateCcw, Edit2 } from 'lucide-react';
 
-export default function ManageScreen({ deck, onSave, onBack }) {
+export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
   const [filterFavorites, setFilterFavorites] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
   const [text, setText] = useState('');
@@ -77,7 +77,7 @@ export default function ManageScreen({ deck, onSave, onBack }) {
 
   const handleResetWeight = (id) => {
     const newDeck = deck.map(c => c.id === id ? { ...c, weight: 100 } : c);
-    onSave(newDeck);
+    onUpdateDeck(newDeck);
   };
 
   const handleEditWeight = (id, oldWeight) => {
@@ -85,14 +85,14 @@ export default function ManageScreen({ deck, onSave, onBack }) {
     if (val !== null && !isNaN(val) && val.trim() !== '') {
       const newWeight = Math.max(1, Math.min(1000, parseInt(val)));
       const newDeck = deck.map(c => c.id === id ? { ...c, weight: newWeight } : c);
-      onSave(newDeck);
+      onUpdateDeck(newDeck);
     }
   };
 
   const handleResetAllWeights = () => {
     if (window.confirm("🚨 ARE YOU SURE?\n\nThis will reset the algorithm weight of ALL words to 100. Your study progress (what you know and don't know) will be lost!")) {
       const newDeck = deck.map(c => ({ ...c, weight: 100 }));
-      onSave(newDeck);
+      onUpdateDeck(newDeck);
     }
   };
 
