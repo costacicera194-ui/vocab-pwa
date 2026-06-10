@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSentence, fetchTranslation } from '../services/api';
 import { calculateNextReview } from '../utils/sm2';
-import { BookOpen, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, X as XIcon } from 'lucide-react';
 
 export default function FlashcardScreen({ deck, updateDeck, onBack }) {
   const [sentence, setSentence] = useState('');
@@ -32,14 +32,13 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
   };
 
   const handleWordClick = async (rawWord) => {
-    // Remove punctuation
     const cleanWord = rawWord.replace(/[^a-zA-Z]/g, '');
     if (!cleanWord) return;
     
     setTranslatedWord(cleanWord);
-    setTranslationText('查询中...');
+    setTranslationText('Loading...');
     const result = await fetchTranslation(cleanWord);
-    setTranslationText(result || '未能找到该词的释义');
+    setTranslationText(result || 'No definition found.');
   };
 
   const handleAnswer = (quality) => {
@@ -47,20 +46,20 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
     
     const updatedCard = { ...currentCard, ...calculateNextReview(currentCard, quality) };
     
-    // Update the master deck
-    // Since currentCard is always dueCards[0], updating the deck will automatically 
-    // remove the card from dueCards (if nextReview > now) and the next card will slide in!
+    // Update the master deck, automatically advancing the queue
     const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
     updateDeck(newDeck);
   };
 
   if (dueCards.length === 0) {
     return (
-      <div className="glass-panel" style={{ textAlign: 'center', marginTop: '3rem' }}>
-        <CheckCircle size={48} color="var(--success-color)" style={{ margin: '0 auto' }} />
-        <h2>今日任务已完成！</h2>
-        <p>太棒了，您的词库中没有需要复习的单词了。</p>
-        <button className="btn-primary" onClick={onBack} style={{ marginTop: '1rem' }}>返回</button>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '24px' }}>
+        <div style={{ background: 'var(--border-color)', width: 64, height: 64, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+          <Check size={32} color="var(--text-primary)" />
+        </div>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, letterSpacing: '-0.02em', marginBottom: '8px' }}>All caught up</h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>You have no more words to review right now.</p>
+        <button className="btn-secondary" onClick={onBack} style={{ width: '100%', borderRadius: '16px' }}>Return Home</button>
       </div>
     );
   }
@@ -68,34 +67,38 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
   if (!currentCard) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '24px' }}>
       
-      {/* Progress Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button onClick={onBack} style={{ color: 'var(--text-secondary)' }}>← 返回</button>
-        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          剩余待复习: {dueCards.length} 词
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '24px' }}>
+        <button onClick={onBack} style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '1rem', padding: 0 }}>
+          <ArrowLeft size={20} />
+        </button>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600 }}>
+          {dueCards.length} left
         </span>
       </div>
 
       <AnimatePresence mode="wait">
         <motion.div 
           key={currentCard.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="glass-panel"
-          style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minHeight: '300px' }}
+          initial={{ opacity: 0, filter: 'blur(4px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, filter: 'blur(4px)' }}
+          transition={{ duration: 0.3 }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
         >
-          <div style={{ textAlign: 'center' }}>
-            <h1 style={{ fontSize: '2.5rem', color: 'var(--primary-color)' }}>{currentCard.word}</h1>
+          <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <h1 style={{ fontSize: '3.5rem', fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--text-primary)', margin: 0 }}>
+              {currentCard.word}
+            </h1>
           </div>
 
-          <div style={{ background: 'rgba(255,255,255,0.5)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ padding: '0 12px', marginBottom: '2rem' }}>
             {loadingSentence ? (
-              <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>正在生成考研语境...</p>
+              <div style={{ height: '24px', width: '60%', background: 'var(--border-color)', borderRadius: '4px', margin: '0 auto', animation: 'pulse 1.5s infinite ease-in-out' }} />
             ) : (
-              <p style={{ fontSize: '1.1rem', lineHeight: 1.8 }}>
+              <p style={{ fontSize: '1.25rem', lineHeight: 1.6, color: 'var(--text-secondary)', textAlign: 'center', fontWeight: 400 }}>
                 {sentence.split(' ').map((w, i) => (
                   <span 
                     key={i} 
@@ -103,8 +106,9 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
                     style={{ 
                       cursor: 'pointer', 
                       display: 'inline-block', 
-                      marginRight: '4px',
-                      borderBottom: translatedWord === w.replace(/[^a-zA-Z]/g, '') ? '2px solid var(--primary-color)' : 'none'
+                      marginRight: '6px',
+                      color: translatedWord === w.replace(/[^a-zA-Z]/g, '') ? 'var(--text-primary)' : 'inherit',
+                      transition: 'color 0.2s'
                     }}
                   >
                     {w}
@@ -115,54 +119,60 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
           </div>
 
           {/* Translation Popup Area */}
-          <div style={{ minHeight: '60px' }}>
+          <div style={{ minHeight: '80px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             {translatedWord && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ background: 'var(--bg-gradient)', padding: '12px', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-                <strong style={{ color: 'var(--primary-color)' }}>{translatedWord}</strong>: {translationText}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'var(--panel-bg)', padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--border-color)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', textAlign: 'center', maxWidth: '90%' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{translatedWord}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{translationText}</div>
               </motion.div>
             )}
           </div>
 
-          {!showOriginalTranslation ? (
-            <button 
-              className="btn-primary" 
-              style={{ background: 'var(--text-secondary)' }}
-              onClick={() => setShowOriginalTranslation(true)}
-            >
-              显示原词释义
-            </button>
-          ) : (
-            <div style={{ textAlign: 'center', fontSize: '1.2rem', fontWeight: 600 }}>
-              {currentCard.translation}
-            </div>
-          )}
+          <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', minHeight: '60px' }}>
+            {!showOriginalTranslation ? (
+              <button 
+                onClick={() => setShowOriginalTranslation(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '0.9rem', cursor: 'pointer', letterSpacing: '0.02em', textDecoration: 'underline', textUnderlineOffset: '4px' }}
+              >
+                Show Translation
+              </button>
+            ) : (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ textAlign: 'center', fontSize: '1.25rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                {currentCard.translation}
+              </motion.div>
+            )}
+          </div>
 
         </motion.div>
       </AnimatePresence>
 
       {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '1rem', marginTop: 'auto' }}>
+      <div style={{ display: 'flex', gap: '12px', paddingTop: '24px' }}>
         <button 
-          className="glass-panel" 
           onClick={() => handleAnswer(1)}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', border: '2px solid transparent', cursor: 'pointer' }}
-          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--danger-color)'}
-          onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}
+          style={{ flex: 1, padding: '24px', background: 'var(--panel-bg)', border: '1px solid var(--border-color)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'background 0.2s' }}
+          onMouseOver={e => e.currentTarget.style.background = '#f9f9f9'}
+          onMouseOut={e => e.currentTarget.style.background = 'var(--panel-bg)'}
         >
-          <XCircle color="var(--danger-color)" size={32} />
-          <span style={{ fontWeight: 500 }}>不认识</span>
+          <XIcon color="var(--text-tertiary)" size={28} />
         </button>
         <button 
-          className="glass-panel" 
           onClick={() => handleAnswer(4)}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', border: '2px solid transparent', cursor: 'pointer' }}
-          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--success-color)'}
-          onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}
+          style={{ flex: 1, padding: '24px', background: 'var(--text-primary)', border: '1px solid var(--text-primary)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'opacity 0.2s' }}
+          onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
+          onMouseOut={e => e.currentTarget.style.opacity = '1'}
         >
-          <CheckCircle color="var(--success-color)" size={32} />
-          <span style={{ fontWeight: 500 }}>认识</span>
+          <Check color="#ffffff" size={28} />
         </button>
       </div>
+      
+      <style>{`
+        @keyframes pulse {
+          0% { opacity: 0.4; }
+          50% { opacity: 0.1; }
+          100% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }
