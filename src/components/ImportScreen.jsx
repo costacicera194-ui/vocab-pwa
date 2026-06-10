@@ -12,20 +12,25 @@ export default function ImportScreen({ onImport }) {
     const parsedCards = [];
 
     lines.forEach(line => {
-      // Split by tab, or multiple spaces
-      const parts = line.trim().split(/\t+|\s{2,}/);
-      if (parts.length >= 2) {
+      // Extract the english word part and the rest as translation
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+      
+      // Match English letters/hyphens at the start, followed by space, then the rest
+      const match = trimmedLine.match(/^([a-zA-Z\-]+)[\s]+(.*)$/);
+      
+      if (match) {
         parsedCards.push({
           id: Date.now() + Math.random(),
-          word: parts[0].trim(),
-          translation: parts[1].trim(),
+          word: match[1].trim(),
+          translation: match[2].trim(),
           ...initialCardState()
         });
-      } else if (parts.length === 1 && parts[0].trim() !== "") {
-        // Fallback if they only provide a word
+      } else {
+        // Fallback if no translation provided or pattern doesn't match
         parsedCards.push({
           id: Date.now() + Math.random(),
-          word: parts[0].trim(),
+          word: trimmedLine,
           translation: '待查',
           ...initialCardState()
         });
