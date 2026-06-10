@@ -7,20 +7,27 @@ export const initCard = () => ({
 
 // Update the card's weight based on the user's answer
 export const updateCardWeight = (card, isKnown) => {
-  let newWeight = card.weight !== undefined ? card.weight : 10;
+  let w = card.weight !== undefined ? card.weight : 10;
   
   if (isKnown) {
-    // Known: drop weight. Min weight is 1.
-    newWeight = Math.max(1, Math.floor(newWeight / 3));
+    // Drop exactly one gear down
+    if (w >= 100) w = 60;
+    else if (w >= 60) w = 30;
+    else if (w >= 30) w = 10;
+    else if (w >= 10) w = 5;
+    else if (w >= 5) w = 3;
+    else w = 1;
   } else {
-    // Unknown: bump the weight. Max weight is 100.
-    newWeight = Math.min(100, newWeight * 2 + 10);
+    // Forgetting pushes the weight up significantly
+    if (w <= 3) w = 30;
+    else if (w <= 5) w = 60;
+    else w = 100;
   }
 
   return {
     ...card,
     appearances: (card.appearances || 0) + 1,
-    weight: newWeight
+    weight: w
   };
 };
 
