@@ -6,10 +6,8 @@ import { ArrowLeft, Save, Trash2, Info } from 'lucide-react';
 export default function ManageScreen({ deck, onSave, onBack }) {
   const [text, setText] = useState('');
 
-  // Convert deck to raw text on load
   useEffect(() => {
     const rawText = deck.map(card => {
-      // If translation is '待查', we just export the word
       if (card.translation === '待查') return card.word;
       return `${card.word}\t${card.translation}`;
     }).join('\n');
@@ -33,14 +31,13 @@ export default function ManageScreen({ deck, onSave, onBack }) {
         translation = match[2].trim();
       }
 
-      // Try to find if this word already existed to preserve its learning progress
       const existingCard = deck.find(c => c.word.toLowerCase() === word.toLowerCase());
 
       if (existingCard) {
         newDeck.push({
           ...existingCard,
           word,
-          translation // Update translation just in case they edited it
+          translation
         });
       } else {
         newDeck.push({
@@ -66,25 +63,38 @@ export default function ManageScreen({ deck, onSave, onBack }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="p-6 max-w-md mx-auto h-screen flex flex-col"
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '1.5rem 0' }}
     >
-      <div className="flex justify-between items-center mb-6">
-        <button onClick={onBack} className="text-slate-500 hover:text-slate-800 flex items-center gap-1">
-          <ArrowLeft size={18} /> 返回
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <button onClick={onBack} style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '1rem' }}>
+          <ArrowLeft size={20} /> 返回
         </button>
-        <h2 className="text-xl font-bold text-slate-800">词库管理</h2>
-        <button onClick={handleClear} className="text-red-500 hover:text-red-700 p-2">
-          <Trash2 size={18} />
+        <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--text-primary)' }}>词库管理</h2>
+        <button onClick={handleClear} style={{ color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
+          <Trash2 size={22} />
         </button>
       </div>
 
-      <div className="bg-blue-50 text-blue-800 p-3 rounded-xl mb-4 text-sm flex items-start gap-2">
-        <Info size={16} className="mt-0.5 shrink-0" />
-        <p>这是您的纯文本词库！每一行一个单词。您可以随意修改、删除某一行，或者粘贴新的单词进来。保存后进度会自动同步。</p>
+      <div style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary-color)', padding: '12px', borderRadius: '12px', marginBottom: '1rem', display: 'flex', gap: '8px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+        <Info size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+        <p style={{ margin: 0 }}>这是您的纯文本词库！每一行一个单词。您可以随意修改、删除某一行，或者粘贴新的单词进来。保存后进度会自动同步。</p>
       </div>
 
       <textarea
-        className="flex-1 w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all resize-none shadow-inner text-base font-mono bg-slate-50"
+        style={{ 
+          flex: 1, 
+          width: '100%', 
+          padding: '16px', 
+          borderRadius: '16px', 
+          border: '2px solid rgba(0,0,0,0.05)', 
+          outline: 'none',
+          resize: 'none',
+          fontFamily: 'monospace',
+          fontSize: '1rem',
+          background: 'rgba(255,255,255,0.7)',
+          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+          lineHeight: 1.6
+        }}
         placeholder="apple 苹果&#10;abandon 放弃"
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -92,7 +102,8 @@ export default function ManageScreen({ deck, onSave, onBack }) {
 
       <button
         onClick={handleSave}
-        className="mt-6 w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 rounded-2xl shadow-xl shadow-slate-200 active:scale-95 transition-all flex justify-center items-center gap-2"
+        className="btn-primary"
+        style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '1.2rem', fontSize: '1.1rem' }}
       >
         <Save size={20} />
         保存并覆盖 ({text.split('\n').filter(l => l.trim()).length} 词)
