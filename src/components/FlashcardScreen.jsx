@@ -98,22 +98,29 @@ export default function FlashcardScreen({ deck, updateDeck, onBack }) {
             {loadingSentence ? (
               <div style={{ height: '24px', width: '60%', background: 'var(--border-color)', borderRadius: '4px', margin: '0 auto', animation: 'pulse 1.5s infinite ease-in-out' }} />
             ) : (
-              <p style={{ fontSize: '1.25rem', lineHeight: 1.6, color: 'var(--text-secondary)', textAlign: 'center', fontWeight: 400 }}>
-                {sentence.split(' ').map((w, i) => (
-                  <span 
-                    key={i} 
-                    onClick={() => handleWordClick(w)}
-                    style={{ 
-                      cursor: 'pointer', 
-                      display: 'inline-block', 
-                      marginRight: '6px',
-                      color: translatedWord === w.replace(/[^a-zA-Z]/g, '') ? 'var(--text-primary)' : 'inherit',
-                      transition: 'color 0.2s'
-                    }}
-                  >
-                    {w}
-                  </span>
-                ))}
+              <p style={{ fontSize: '1.4rem', lineHeight: 1.6, color: 'var(--text-primary)', textAlign: 'center', fontWeight: 500 }}>
+                {sentence.split(' ').map((w, i) => {
+                  const cleanW = w.replace(/[^a-zA-Z]/g, '');
+                  const isTarget = cleanW.toLowerCase() === currentCard.word.toLowerCase();
+                  return (
+                    <span 
+                      key={i} 
+                      onClick={() => handleWordClick(w)}
+                      style={{ 
+                        cursor: 'pointer', 
+                        display: 'inline-block', 
+                        marginRight: '6px',
+                        color: translatedWord === cleanW 
+                          ? 'var(--success-color)' 
+                          : (isTarget ? '#4f46e5' : 'inherit'),
+                        fontWeight: isTarget ? 700 : 'inherit',
+                        transition: 'color 0.2s'
+                      }}
+                    >
+                      {w}
+                    </span>
+                  );
+                })}
               </p>
             )}
           </div>
