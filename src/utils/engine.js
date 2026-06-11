@@ -2,7 +2,9 @@
 export const initCard = () => ({
   appearances: 0,
   weight: 50, // Base weight for a new unseen word
-  isStarred: false
+  isStarred: false,
+  sentences: [],
+  sentenceIndex: 0
 });
 
 // Update the card's weight based on the user's answer

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSentence, fetchTranslation } from '../services/api';
-import { getWeightedRandomCard, updateCardWeight } from '../utils/engine';
+import { getWeightedRandomCard, updateCardWeight, initCard } from '../utils/engine';
 import { ArrowLeft, Check, X as XIcon, Star, ArrowRight, RotateCcw } from 'lucide-react';
 
 const HighlightedText = ({ text }) => {
@@ -56,16 +56,34 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     setLoadingSentence(true);
     setSentenceEn('');
     setSentenceZh('');
+    
+    const sentences = currentCard.sentences || [];
+    let idx = currentCard.sentenceIndex || 0;
+    
+    if (sentences.length >= 6) {
+      const cached = sentences[idx];
+      setSentenceEn(cached.en);
+      setSentenceZh(cached.zh);
+      
+      const newCard = { ...currentCard, sentenceIndex: (idx + 1) % sentences.length };
+      const newDeck = deck.map(c => c.id === newCard.id ? newCard : c);
+      updateDeck(newDeck);
+      setCurrentCard(newCard);
+      
+      setLoadingSentence(false);
+      return;
+    }
+
     const context = await generateSentence(currentCard.word, currentCard.translation);
     
+    let en = '', zh = '';
     // Parse English and Chinese parts
     if (context.includes('---')) {
       const parts = context.split('---');
-      let en = parts[0].replace(/\*\*/g, '').trim();
+      en = parts[0].trim();
       en = en.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '');
-      setSentenceEn(en);
       
-      let zh = parts[1].trim();
+      zh = parts[1].trim();
       // Fallback: If LLM forgot to add ** and translation exists
       if (!zh.includes('**') && currentCard.translation !== '待查') {
         const meanings = currentCard.translation.split(/[,，;；\s]+/).filter(Boolean);
@@ -76,13 +94,22 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
           }
         }
       }
-      setSentenceZh(zh);
     } else {
-      let en = context.replace(/\*\*/g, '').trim();
+      en = context.trim();
       en = en.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '');
-      setSentenceEn(en);
-      setSentenceZh('');
     }
+    
+    const isDup = sentences.some(s => s.en.replace(/\*\*/g, '') === en.replace(/\*\*/g, ''));
+    if (!isDup && en && zh) {
+      const newSentences = [...sentences, { en, zh }];
+      const newCard = { ...currentCard, sentences: newSentences, sentenceIndex: newSentences.length - 1 };
+      const newDeck = deck.map(c => c.id === newCard.id ? newCard : c);
+      updateDeck(newDeck);
+      setCurrentCard(newCard);
+    }
+    
+    setSentenceEn(en);
+    setSentenceZh(zh);
     
     setLoadingSentence(false);
   };
@@ -137,6 +164,31 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
     updateDeck(newDeck);
     setCurrentCard(updatedCard);
+  };
+
+  const handleAddNewWord = (wordToAdd, starIt) => {
+    if (deck.find(c => c.word.toLowerCase() === wordToAdd.toLowerCase())) {
+      alert("词库中已存在该单词！");
+      return;
+    }
+    
+    let meaning = '待查';
+    if (typeof translationText === 'string' && translationText !== '未找到释义' && !translationText.includes('分析语境')) {
+      meaning = translationText.split('___')[0]; 
+    } else if (translationText && translationText.context && !translationText.context.includes('分析语境')) {
+      meaning = translationText.context;
+    }
+
+    const newCard = {
+      id: Date.now() + Math.random(),
+      word: wordToAdd,
+      translation: meaning,
+      ...initCard(),
+      isStarred: starIt
+    };
+    
+    updateDeck([newCard, ...deck]);
+    alert("已成功添加！");
   };
 
   if (!activeDeck || activeDeck.length === 0) {
@@ -211,24 +263,26 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <p style={{ fontSize: '1.15rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: 0, textAlign: 'left', fontWeight: 500 }}>
                   {sentenceEn.split(' ').map((w, i) => {
-                    const cleanW = w.replace(/[^a-zA-Z\-]/g, '');
-                    const isTarget = cleanW.toLowerCase() === currentCard.word.toLowerCase();
+                    const isTarget = w.includes('**');
+                    const displayW = w.replace(/\*\*/g, '');
+                    const cleanW = displayW.replace(/[^a-zA-Z\-]/g, '');
+                    
                     return (
                       <span 
                         key={i} 
-                        onClick={() => handleWordClick(w)}
+                        onClick={() => handleWordClick(displayW)}
                         style={{ 
                           cursor: 'pointer', 
                           display: 'inline-block', 
                           marginRight: '6px',
                           color: translatedWord === cleanW 
                             ? 'var(--success-color)' 
-                            : (isTarget ? '#4f46e5' : 'inherit'),
+                            : (isTarget ? '#ef4444' : 'inherit'),
                           fontWeight: isTarget ? 700 : 'inherit',
                           transition: 'color 0.2s'
                         }}
                       >
-                        {w}
+                        {displayW}
                       </span>
                     );
                   })}
@@ -265,6 +319,22 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
                     </>
                   )}
                 </div>
+                {!deck.find(c => c.word.toLowerCase() === translatedWord.toLowerCase()) && (
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px' }}>
+                    <button 
+                      onClick={() => handleAddNewWord(translatedWord, false)}
+                      style={{ background: 'var(--text-primary)', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      ➕ 加入词库
+                    </button>
+                    <button 
+                      onClick={() => handleAddNewWord(translatedWord, true)}
+                      style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      ⭐ 标星加入
+                    </button>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>

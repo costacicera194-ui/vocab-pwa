@@ -7,6 +7,8 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
   const [filterFavorites, setFilterFavorites] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
   const [text, setText] = useState('');
+  const [newWord, setNewWord] = useState('');
+  const [newTrans, setNewTrans] = useState('');
 
   const activeDeck = filterFavorites ? deck.filter(c => c.isStarred) : deck;
 
@@ -66,6 +68,15 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
     }
 
     onSave(newDeck);
+  };
+
+  const handleAddSingle = () => {
+    if (!newWord.trim()) return;
+    const word = newWord.trim();
+    const translation = newTrans.trim() || '待查';
+    setText(prev => prev.trim() ? `${word}\t${translation}\n${prev}` : `${word}\t${translation}`);
+    setNewWord('');
+    setNewTrans('');
   };
 
   const handleClear = () => {
@@ -143,6 +154,31 @@ export default function ManageScreen({ deck, onSave, onUpdateDeck, onBack }) {
       
       {!showWeights ? (
         <>
+          <div style={{ background: 'var(--panel-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Add Single Word (Prepend to Text)</div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input 
+                placeholder="English Word" 
+                value={newWord}
+                onChange={e => setNewWord(e.target.value)}
+                style={{ flex: 1, minWidth: '120px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
+              />
+              <input 
+                placeholder="Translation (Optional)" 
+                value={newTrans}
+                onChange={e => setNewTrans(e.target.value)}
+                style={{ flex: 1, minWidth: '120px', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
+              />
+              <button 
+                onClick={handleAddSingle}
+                className="btn-primary"
+                style={{ padding: '0 20px', borderRadius: '8px' }}
+              >
+                Add to Editor
+              </button>
+            </div>
+          </div>
+
           <p style={{ margin: '0 0 16px 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             {filterFavorites ? 'Editing starred words only.' : 'Raw text editing. One word per line, followed by its translation.'}
           </p>
