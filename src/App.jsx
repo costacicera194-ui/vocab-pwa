@@ -4,6 +4,7 @@ import FlashcardScreen from './components/FlashcardScreen';
 import { Settings, X, RefreshCw, Cloud } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { syncToCloud, fetchFromCloud } from './services/sync';
+import Heatmap from './components/Heatmap';
 
 function App() {
   const [deck, setDeck] = useState(() => {
@@ -214,6 +215,8 @@ function App() {
         >
           📝 Manage Deck
         </button>
+
+        <Heatmap />
       </div>
 
       <style>{`

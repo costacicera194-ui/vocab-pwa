@@ -7,8 +7,22 @@ export const initCard = () => ({
   sentenceIndex: 0
 });
 
+// Record daily study activity for heatmap
+const recordStudyStat = () => {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const statsStr = localStorage.getItem('study_stats');
+    const stats = statsStr ? JSON.parse(statsStr) : {};
+    stats[today] = (stats[today] || 0) + 1;
+    localStorage.setItem('study_stats', JSON.stringify(stats));
+  } catch (e) {
+    console.error("Failed to update study stats", e);
+  }
+};
+
 // Update the card's weight based on the user's answer
 export const updateCardWeight = (card, isKnown) => {
+  recordStudyStat();
   let w = card.weight !== undefined ? card.weight : 50;
   
   if (isKnown) {

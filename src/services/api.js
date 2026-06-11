@@ -1,3 +1,20 @@
+let staticDict = null;
+
+const loadStaticDict = async () => {
+  if (staticDict) return staticDict;
+  try {
+    const res = await fetch('/dict.json');
+    if (res.ok) {
+      staticDict = await res.json();
+    } else {
+      staticDict = {};
+    }
+  } catch (e) {
+    staticDict = {};
+  }
+  return staticDict;
+};
+
 // Contextual Translation lookup using LLM
 export const fetchTranslation = async (word, sentence) => {
   const apiKey = localStorage.getItem('ai_api_key');
@@ -6,7 +23,14 @@ export const fetchTranslation = async (word, sentence) => {
   }
 
   const cacheKey = `dict_cache_${word.toLowerCase()}`;
-  const cachedOthers = localStorage.getItem(cacheKey);
+  let cachedOthers = localStorage.getItem(cacheKey);
+
+  if (!cachedOthers) {
+    const dict = await loadStaticDict();
+    if (dict[word.toLowerCase()]) {
+      cachedOthers = dict[word.toLowerCase()];
+    }
+  }
 
   try {
     const response = await fetch(`https://api.deepseek.com/chat/completions`, {

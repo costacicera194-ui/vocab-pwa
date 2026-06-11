@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSentence, fetchTranslation } from '../services/api';
 import { getWeightedRandomCard, updateCardWeight, initCard } from '../utils/engine';
-import { ArrowLeft, Check, X as XIcon, Star, ArrowRight, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, X as XIcon, Star, ArrowRight, RotateCcw, Volume2 } from 'lucide-react';
+
+const speakText = (text) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  }
+};
 
 const HighlightedText = ({ text }) => {
   if (!text) return null;
@@ -232,6 +241,14 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
                 {currentCard.word}
               </h1>
               <button 
+                onClick={() => speakText(currentCard.word)}
+                style={{ marginLeft: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', transition: 'color 0.2s' }}
+                onMouseOver={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                onMouseOut={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
+              >
+                <Volume2 size={28} />
+              </button>
+              <button 
                 onClick={toggleStar} 
                 style={{ position: 'absolute', right: 0, background: 'none', border: 'none', cursor: 'pointer', color: currentCard.isStarred ? '#fbbf24' : '#9ca3af', transition: 'color 0.2s' }}
               >
@@ -261,8 +278,9 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <p style={{ fontSize: '1.15rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: 0, textAlign: 'left', fontWeight: 500 }}>
-                  {sentenceEn.split(' ').map((w, i) => {
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <p style={{ fontSize: '1.15rem', lineHeight: 1.6, color: 'var(--text-primary)', margin: 0, textAlign: 'left', fontWeight: 500, flex: 1 }}>
+                    {sentenceEn.split(' ').map((w, i) => {
                     const isTarget = w.includes('**');
                     const displayW = w.replace(/\*\*/g, '');
                     const cleanW = displayW.replace(/[^a-zA-Z\-]/g, '');
@@ -286,7 +304,14 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
                       </span>
                     );
                   })}
-                </p>
+                  </p>
+                  <button 
+                    onClick={() => speakText(sentenceEn.replace(/\*\*/g, ''))}
+                    style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)', borderRadius: '8px', cursor: 'pointer', color: 'var(--text-tertiary)', flexShrink: 0, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Volume2 size={20} />
+                  </button>
+                </div>
                 
                 {/* Stage 2: Show Translation */}
                 {answerStep === 2 && sentenceZh && (
