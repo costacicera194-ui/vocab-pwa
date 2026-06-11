@@ -5,11 +5,20 @@ import { Settings, X, RefreshCw, Cloud } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { syncToCloud, fetchFromCloud } from './services/sync';
 import Heatmap from './components/Heatmap';
+import LZString from 'lz-string';
 
 function App() {
   const [deck, setDeck] = useState(() => {
     const saved = localStorage.getItem('vocab_deck');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const decompressed = LZString.decompressFromUTF16(saved);
+        if (decompressed) return JSON.parse(decompressed);
+        return JSON.parse(saved);
+      } catch (e) {
+        try { return JSON.parse(saved); } catch (err) { return []; }
+      }
+    }
     const legacy = localStorage.getItem('vocab_pwa_deck');
     if (legacy) {
       localStorage.removeItem('vocab_pwa_deck');
@@ -54,7 +63,8 @@ function App() {
 
   // Save to local & cloud when deck changes
   useEffect(() => {
-    localStorage.setItem('vocab_deck', JSON.stringify(deck));
+    const compressed = LZString.compressToUTF16(JSON.stringify(deck));
+    localStorage.setItem('vocab_deck', compressed);
     
     const timer = setTimeout(async () => {
       if (githubToken && gistId) {

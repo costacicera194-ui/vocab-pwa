@@ -1,5 +1,7 @@
 // Cloud sync using GitHub Gist
 
+import LZString from 'lz-string';
+
 export const syncToCloud = async (deck) => {
   const token = localStorage.getItem('github_token');
   const gistId = localStorage.getItem('gist_id');
@@ -16,7 +18,7 @@ export const syncToCloud = async (deck) => {
       body: JSON.stringify({
         files: {
           'vocab_pwa_deck.json': {
-            content: JSON.stringify(deck)
+            content: LZString.compressToUTF16(JSON.stringify(deck))
           }
         }
       })
@@ -48,7 +50,13 @@ export const fetchFromCloud = async () => {
     const data = await response.json();
     const file = data.files['vocab_pwa_deck.json'];
     if (file && file.content) {
-      return JSON.parse(file.content);
+      try {
+        const decompressed = LZString.decompressFromUTF16(file.content);
+        if (decompressed) return JSON.parse(decompressed);
+        return JSON.parse(file.content);
+      } catch (e) {
+        try { return JSON.parse(file.content); } catch (err) { return null; }
+      }
     }
     return null;
   } catch (error) {
