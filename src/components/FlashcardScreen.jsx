@@ -58,6 +58,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
       setAnswerStep(1);
       setSelectedAnswer(null);
       setTranslatedWord(null);
+      speakText(currentCard.word);
     }
   }, [currentCard?.id]);
 
