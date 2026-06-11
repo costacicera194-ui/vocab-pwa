@@ -6,26 +6,53 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { syncToCloud, fetchFromCloud } from './services/sync';
 import Heatmap from './components/Heatmap';
 import LZString from 'lz-string';
+import localforage from 'localforage';
 
 function App() {
-  const [deck, setDeck] = useState(() => {
-    const saved = localStorage.getItem('vocab_deck');
-    if (saved) {
+  const [deck, setDeck] = useState([]);
+  const [isBooting, setIsBooting] = useState(true);
+
+  useEffect(() => {
+    const bootDB = async () => {
       try {
-        const decompressed = LZString.decompressFromUTF16(saved);
-        if (decompressed) return JSON.parse(decompressed);
-        return JSON.parse(saved);
+        const stored = await localforage.getItem('vocab_deck');
+        if (stored && Array.isArray(stored) && stored.length > 0) {
+          setDeck(stored);
+        } else {
+          // Attempt migration from localStorage
+          const legacySaved = localStorage.getItem('vocab_deck');
+          if (legacySaved) {
+            try {
+              const decompressed = LZString.decompressFromUTF16(legacySaved);
+              const parsed = decompressed ? JSON.parse(decompressed) : JSON.parse(legacySaved);
+              setDeck(parsed);
+              await localforage.setItem('vocab_deck', parsed);
+              localStorage.removeItem('vocab_deck');
+            } catch (e) {
+              try { 
+                const parsed = JSON.parse(legacySaved);
+                setDeck(parsed);
+                await localforage.setItem('vocab_deck', parsed);
+                localStorage.removeItem('vocab_deck');
+              } catch (err) {}
+            }
+          } else {
+            const olderLegacy = localStorage.getItem('vocab_pwa_deck');
+            if (olderLegacy) {
+               const parsed = JSON.parse(olderLegacy);
+               setDeck(parsed);
+               await localforage.setItem('vocab_deck', parsed);
+               localStorage.removeItem('vocab_pwa_deck');
+            }
+          }
+        }
       } catch (e) {
-        try { return JSON.parse(saved); } catch (err) { return []; }
+        console.error("DB boot error", e);
       }
-    }
-    const legacy = localStorage.getItem('vocab_pwa_deck');
-    if (legacy) {
-      localStorage.removeItem('vocab_pwa_deck');
-      return JSON.parse(legacy);
-    }
-    return [];
-  });
+      setIsBooting(false);
+    };
+    bootDB();
+  }, []);
   
   const [currentView, setCurrentView] = useState('home'); 
   const [filterFavorites, setFilterFavorites] = useState(false);
@@ -63,8 +90,8 @@ function App() {
 
   // Save to local & cloud when deck changes
   useEffect(() => {
-    const compressed = LZString.compressToUTF16(JSON.stringify(deck));
-    localStorage.setItem('vocab_deck', compressed);
+    if (isBooting) return;
+    localforage.setItem('vocab_deck', deck);
     
     const timer = setTimeout(async () => {
       if (githubToken && gistId) {
@@ -97,6 +124,19 @@ function App() {
     }
     setIsSyncing(false);
   };
+
+  if (isBooting) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', flexDirection: 'column', gap: '12px' }}>
+        <RefreshCw size={32} className="spin-animation" color="var(--text-tertiary)" />
+        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>Loading database...</span>
+        <style>{`
+          .spin-animation { animation: spin 1s linear infinite; }
+          @keyframes spin { 100% { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
 
   if (currentView === 'manage') {
     return <ManageScreen deck={deck} onSave={handleSaveDeck} onUpdateDeck={setDeck} onBack={() => setCurrentView('home')} />;
