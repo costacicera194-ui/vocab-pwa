@@ -93,17 +93,27 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
       return;
     }
 
-    const context = await generateSentence(currentCard.word, currentCard.translation);
+    setLoadingSentence(false); // Stop loading animation, start typing
+
+    let finalContext = await generateSentence(currentCard.word, currentCard.translation, (chunk) => {
+      if (chunk.includes('---')) {
+        const parts = chunk.split('---');
+        let tempEn = parts[0].replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '').trimStart();
+        let tempZh = parts[1].trimStart();
+        setSentenceEn(tempEn);
+        setSentenceZh(tempZh);
+      } else {
+        let tempEn = chunk.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '').trimStart();
+        setSentenceEn(tempEn);
+        setSentenceZh('');
+      }
+    });
     
     let en = '', zh = '';
-    // Parse English and Chinese parts
-    if (context.includes('---')) {
-      const parts = context.split('---');
-      en = parts[0].trim();
-      en = en.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '');
-      
+    if (finalContext.includes('---')) {
+      const parts = finalContext.split('---');
+      en = parts[0].replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '').trim();
       zh = parts[1].trim();
-      // Fallback: If LLM forgot to add ** and translation exists
       if (!zh.includes('**') && currentCard.translation !== '待查') {
         const meanings = currentCard.translation.split(/[,，;；\s]+/).filter(Boolean);
         for (const m of meanings) {
@@ -114,8 +124,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
         }
       }
     } else {
-      en = context.trim();
-      en = en.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '');
+      en = finalContext.replace(/^(英文原句|英语原文|英文例句|例句|原文)[:：\s]*/i, '').trim();
     }
     
     const isDup = sentences.some(s => s.en.replace(/\*\*/g, '') === en.replace(/\*\*/g, ''));
@@ -129,15 +138,12 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     
     setSentenceEn(en);
     setSentenceZh(zh);
-    
-    setLoadingSentence(false);
   };
 
   const handleWordClick = async (rawWord) => {
     const cleanWord = rawWord.replace(/[^a-zA-Z\-]/g, '');
     if (!cleanWord) return;
     
-    // Toggle off if clicking the same word
     if (translatedWord === cleanWord) {
       setTranslatedWord(null);
       return;
@@ -145,7 +151,6 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     
     setTranslatedWord(cleanWord);
 
-    // 1. Sentence-level cache lookup (Instant UI)
     const sentences = currentCard.sentences || [];
     const idx = currentCard.sentenceIndex || 0;
     const currentSentence = sentences[idx];
@@ -161,11 +166,16 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
       return;
     }
 
-    // 2. Fetch from LLM if not cached
-    setTranslationText({ context: '正在分析语境...', others: '' });
-    const result = await fetchTranslation(cleanWord, sentenceEn);
+    setTranslationText({ context: '', others: '' }); // Start empty for typing
+    const result = await fetchTranslation(cleanWord, sentenceEn, (chunk) => {
+      if (chunk.includes('___')) {
+        const [ctxMeaning, othMeaning] = chunk.split('___');
+        setTranslationText({ context: ctxMeaning, others: othMeaning });
+      } else {
+        setTranslationText({ context: chunk, others: '' });
+      }
+    });
     
-    // 3. Save to sentence-level cache to prevent future delays
     if (currentSentence) {
       const newWordMeanings = { ...(currentSentence.wordMeanings || {}), [cleanWord]: result };
       const newSentences = [...sentences];

@@ -3,7 +3,7 @@ import ManageScreen from './components/ManageScreen';
 import FlashcardScreen from './components/FlashcardScreen';
 import { Settings, X, RefreshCw, Cloud } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { syncToCloud, fetchFromCloud } from './services/sync';
+import { syncToCloud, fetchFromCloud, initLocalYjs, syncDeckToYjs, getDeckFromYjs } from './services/sync';
 import Heatmap from './components/Heatmap';
 import LZString from 'lz-string';
 import localforage from 'localforage';
@@ -13,39 +13,30 @@ function App() {
   const [deck, setDeck] = useState([]);
   const [isBooting, setIsBooting] = useState(true);
 
+  // Helper to wrap setDeck and localforage so Yjs also updates
+  const updateDeckState = (newDeck) => {
+    setDeck(newDeck);
+    localforage.setItem('vocab_deck', newDeck).catch(console.error);
+    syncDeckToYjs(newDeck);
+  };
+
   useEffect(() => {
     const bootDB = async () => {
       try {
+        await initLocalYjs();
         const stored = await localforage.getItem('vocab_deck');
-        if (stored && Array.isArray(stored) && stored.length > 0) {
+        
+        // If localforage is empty but Yjs has data, restore from Yjs
+        const yjsDeck = getDeckFromYjs();
+        if ((!stored || stored.length === 0) && yjsDeck.length > 0) {
+           setDeck(yjsDeck);
+           await localforage.setItem('vocab_deck', yjsDeck);
+        } else if (stored && Array.isArray(stored) && stored.length > 0) {
           setDeck(stored);
+          syncDeckToYjs(stored);
         } else {
-          // Attempt migration from localStorage
-          const legacySaved = localStorage.getItem('vocab_deck');
-          if (legacySaved) {
-            try {
-              const decompressed = LZString.decompressFromUTF16(legacySaved);
-              const parsed = decompressed ? JSON.parse(decompressed) : JSON.parse(legacySaved);
-              setDeck(parsed);
-              await localforage.setItem('vocab_deck', parsed);
-              localStorage.removeItem('vocab_deck');
-            } catch (e) {
-              try { 
-                const parsed = JSON.parse(legacySaved);
-                setDeck(parsed);
-                await localforage.setItem('vocab_deck', parsed);
-                localStorage.removeItem('vocab_deck');
-              } catch (err) {}
-            }
-          } else {
-            const olderLegacy = localStorage.getItem('vocab_pwa_deck');
-            if (olderLegacy) {
-               const parsed = JSON.parse(olderLegacy);
-               setDeck(parsed);
-               await localforage.setItem('vocab_deck', parsed);
-               localStorage.removeItem('vocab_pwa_deck');
-            }
-          }
+          // Empty state
+          setDeck([]);
         }
       } catch (e) {
         console.error("DB boot error", e);
@@ -59,11 +50,10 @@ function App() {
   const [filterFavorites, setFilterFavorites] = useState(false);
   const [studyMode, setStudyMode] = useState('mission'); // 'mission' | 'infinite'
   
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('ai_api_key') || localStorage.getItem('gemini_api_key') || '');
-  const [githubToken, setGithubToken] = useState(() => localStorage.getItem('github_token') || '');
-  const [gistId, setGistId] = useState(() => localStorage.getItem('gist_id') || '');
-  
   const [showSettings, setShowSettings] = useState(false);
+  const [githubToken, setGithubToken] = useState(localStorage.getItem('github_token') || '');
+  const [gistId, setGistId] = useState(localStorage.getItem('gist_id') || '');
+  const [aiApiKey, setAiApiKey] = useState(localStorage.getItem('ai_api_key') || '');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
 
@@ -108,20 +98,24 @@ function App() {
   }, [deck, githubToken, gistId]);
 
   const handleSaveDeck = (newDeck) => {
-    setDeck(newDeck);
+    updateDeckState(newDeck);
     setCurrentView('home');
   };
 
   const manualSync = async () => {
     if (!githubToken || !gistId) return alert('Please configure GitHub Gist settings first.');
     setIsSyncing(true);
+    // CRDT Merge: Fetch remote, apply to Yjs, get merged deck back
     const cloudDeck = await fetchFromCloud();
     if (cloudDeck) {
-      setDeck(cloudDeck);
+      updateDeckState(cloudDeck);
       setLastSync(new Date().toLocaleTimeString());
-    } else if (deck.length > 0) {
-      // If gist is empty but we have local, push it
-      await syncToCloud(deck);
+    }
+    
+    // Sync the merged result back up to the cloud
+    const currentYjsDeck = getDeckFromYjs();
+    if (currentYjsDeck.length > 0) {
+      await syncToCloud(currentYjsDeck);
       setLastSync(new Date().toLocaleTimeString());
     }
     setIsSyncing(false);
@@ -141,11 +135,11 @@ function App() {
   }
 
   if (currentView === 'manage') {
-    return <ManageScreen deck={deck} onSave={handleSaveDeck} onUpdateDeck={setDeck} onBack={() => setCurrentView('home')} />;
+    return <ManageScreen deck={deck} onSave={handleSaveDeck} onUpdateDeck={updateDeckState} onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'flashcard') {
-    return <FlashcardScreen deck={deck} updateDeck={setDeck} onBack={() => setCurrentView('home')} filterFavorites={filterFavorites} studyMode={studyMode} />;
+    return <FlashcardScreen deck={deck} updateDeck={updateDeckState} onBack={() => setCurrentView('home')} filterFavorites={filterFavorites} studyMode={studyMode} />;
   }
 
   const starredCount = deck.filter(c => c.isStarred).length;

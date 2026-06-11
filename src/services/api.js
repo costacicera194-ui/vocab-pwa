@@ -15,8 +15,62 @@ const loadStaticDict = async () => {
   return staticDict;
 };
 
-// Contextual Translation lookup using LLM
-export const fetchTranslation = async (word, sentence) => {
+// Helper for parsing SSE Streams safely
+const fetchStream = async (url, options, onChunk) => {
+  const response = await fetch(url, options);
+  if (!response.ok) throw new Error("API stream failed");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let done = false;
+  let fullText = "";
+  let buffer = "";
+
+  while (!done) {
+    const { value, done: readerDone } = await reader.read();
+    done = readerDone;
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+      let boundary = buffer.indexOf('\n');
+      while (boundary !== -1) {
+        const line = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 1);
+        
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
+              fullText += data.choices[0].delta.content;
+              if (onChunk) onChunk(fullText);
+            }
+          } catch (e) {
+            // Partial JSON or other format issues
+          }
+        }
+        boundary = buffer.indexOf('\n');
+      }
+    }
+  }
+  return fullText;
+};
+
+const cleanTranslationRaw = (result) => {
+  let cleanResult = result;
+  if (cleanResult.includes('___')) {
+    let parts = cleanResult.split('___');
+    parts[0] = parts[0].replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
+    if (parts.length > 1) {
+      parts[1] = parts[1].replace(/^(其他考研常见含义|其他常见含义|其他含义)[:：\s]*/, '').trim();
+      cleanResult = parts.join('___');
+    }
+  } else {
+    cleanResult = cleanResult.replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
+  }
+  return cleanResult;
+};
+
+// Contextual Translation lookup using LLM (Streaming)
+export const fetchTranslation = async (word, sentence, onChunk) => {
   const apiKey = localStorage.getItem('ai_api_key');
   if (!apiKey || !apiKey.trim()) {
     return "请先配置 API Key 以启用考研语境翻译。";
@@ -33,7 +87,18 @@ export const fetchTranslation = async (word, sentence) => {
   }
 
   try {
-    const response = await fetch(`https://api.deepseek.com/chat/completions`, {
+    const streamCallback = (rawText) => {
+      if (onChunk) {
+        const clean = cleanTranslationRaw(rawText);
+        if (cachedOthers) {
+          onChunk(`${clean}___${cachedOthers}`);
+        } else {
+          onChunk(clean);
+        }
+      }
+    };
+
+    const resultText = await fetchStream(`https://api.deepseek.com/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,6 +106,7 @@ export const fetchTranslation = async (word, sentence) => {
       },
       body: JSON.stringify({
         model: "deepseek-chat",
+        stream: true,
         messages: [
           {
             role: "system",
@@ -54,24 +120,9 @@ export const fetchTranslation = async (word, sentence) => {
           }
         ]
       })
-    });
+    }, streamCallback);
 
-    if (!response.ok) return "查询失败，请检查网络或密钥。";
-    const data = await response.json();
-    const result = data.choices[0].message.content.trim();
-
-    let cleanResult = result;
-    if (cleanResult.includes('___')) {
-      let parts = cleanResult.split('___');
-      parts[0] = parts[0].replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
-      if (parts.length > 1) {
-        parts[1] = parts[1].replace(/^(其他考研常见含义|其他常见含义|其他含义)[:：\s]*/, '').trim();
-        cleanResult = parts.join('___');
-      }
-    } else {
-      cleanResult = cleanResult.replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
-    }
-
+    const cleanResult = cleanTranslationRaw(resultText);
     if (cachedOthers) {
       return `${cleanResult}___${cachedOthers}`;
     } else {
@@ -83,8 +134,8 @@ export const fetchTranslation = async (word, sentence) => {
   }
 };
 
-// Real LLM Sentence Generation
-export const generateSentence = async (word, meaning) => {
+// Real LLM Sentence Generation (Streaming)
+export const generateSentence = async (word, meaning, onChunk) => {
   const apiKey = localStorage.getItem('ai_api_key');
   
   if (!apiKey || !apiKey.trim()) {
@@ -92,7 +143,7 @@ export const generateSentence = async (word, meaning) => {
   }
 
   try {
-    const response = await fetch(`https://api.deepseek.com/chat/completions`, {
+    const resultText = await fetchStream(`https://api.deepseek.com/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -100,6 +151,7 @@ export const generateSentence = async (word, meaning) => {
       },
       body: JSON.stringify({
         model: "deepseek-chat",
+        stream: true,
         messages: [
           {
             role: "system",
@@ -111,14 +163,9 @@ export const generateSentence = async (word, meaning) => {
           }
         ]
       })
-    });
+    }, onChunk);
 
-    if (!response.ok) {
-      throw new Error('API Request Failed');
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
+    return resultText;
   } catch (error) {
     console.error('Sentence generation error:', error);
     return `(生成失败，请检查网络或Key) To successfully master '${word}' requires persistence.`;
