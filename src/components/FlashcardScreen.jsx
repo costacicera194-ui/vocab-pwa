@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSentence, fetchTranslation } from '../services/api';
-import { getWeightedRandomCard, updateCardWeight, initCard } from '../utils/engine';
+import { getNextCardForMission, getNextInfiniteCard, updateCardFSRS, initCard } from '../utils/engine';
 import { ArrowLeft, Check, X as XIcon, Star, ArrowRight, RotateCcw, Volume2 } from 'lucide-react';
 
 const speakText = (text) => {
@@ -25,9 +25,18 @@ const HighlightedText = ({ text }) => {
   );
 };
 
-export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavorites }) {
+export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavorites, studyMode }) {
   const [activeDeck, setActiveDeck] = useState(filterFavorites ? deck.filter(c => c.isStarred) : deck);
-  const [currentCard, setCurrentCard] = useState(() => getWeightedRandomCard(activeDeck));
+  
+  const getNextCard = (currentDeck) => {
+    if (studyMode === 'mission') {
+      return getNextCardForMission(currentDeck, 30);
+    } else {
+      return getNextInfiniteCard(currentDeck);
+    }
+  };
+
+  const [currentCard, setCurrentCard] = useState(() => getNextCard(activeDeck));
   
   const [sentenceEn, setSentenceEn] = useState('');
   const [sentenceZh, setSentenceZh] = useState('');
@@ -44,12 +53,12 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     const filtered = filterFavorites ? deck.filter(c => c.isStarred) : deck;
     setActiveDeck(filtered);
     if (currentCard && !filtered.find(c => c.id === currentCard.id)) {
-      setCurrentCard(getWeightedRandomCard(filtered));
+      setCurrentCard(getNextCard(filtered));
     } else if (!currentCard) {
-      setCurrentCard(getWeightedRandomCard(filtered));
+      setCurrentCard(getNextCard(filtered));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterFavorites]);
+  }, [filterFavorites, studyMode]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -175,25 +184,32 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     }
   };
 
-  const handleStep1 = (isKnown) => {
-    setSelectedAnswer(isKnown);
+  const handleStep1 = (preliminaryRating) => {
+    setSelectedAnswer(preliminaryRating);
     setAnswerStep(2);
   };
 
-  const proceedToNext = (finalIsKnown) => {
+  const proceedToNext = (fsrsRating) => {
     if (!currentCard) return;
     
-    const updatedCard = updateCardWeight(currentCard, finalIsKnown);
+    const updatedCard = updateCardFSRS(currentCard, fsrsRating);
     const newDeck = deck.map(c => c.id === updatedCard.id ? updatedCard : c);
     updateDeck(newDeck);
     
     const newActiveDeck = filterFavorites ? newDeck.filter(c => c.isStarred) : newDeck;
     setActiveDeck(newActiveDeck);
     
-    let nextCard = getWeightedRandomCard(newActiveDeck);
+    let nextCard = getNextCard(newActiveDeck);
     if (nextCard && nextCard.id === updatedCard.id && newActiveDeck.length > 1) {
-       nextCard = getWeightedRandomCard(newActiveDeck.filter(c => c.id !== updatedCard.id));
+       nextCard = getNextCard(newActiveDeck.filter(c => c.id !== updatedCard.id));
     }
+    
+    if (!nextCard && studyMode === 'mission') {
+      alert("🎉 恭喜！今日任务已全部完成！");
+      onBack();
+      return;
+    }
+    
     setCurrentCard(nextCard);
   };
 
@@ -401,13 +417,13 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
         {answerStep === 1 ? (
           <>
             <button 
-              onClick={() => handleStep1(false)}
+              onClick={() => handleStep1('again')}
               style={{ flex: 1, padding: '24px', background: 'var(--panel-bg)', border: '1px solid var(--border-color)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'background 0.2s' }}
             >
               <XIcon color="var(--text-tertiary)" size={28} />
             </button>
             <button 
-              onClick={() => handleStep1(true)}
+              onClick={() => handleStep1('good')}
               style={{ flex: 1, padding: '24px', background: 'var(--text-primary)', border: '1px solid var(--text-primary)', borderRadius: '20px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', transition: 'opacity 0.2s' }}
             >
               <Check color="#ffffff" size={28} />
@@ -415,17 +431,17 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
           </>
         ) : (
           <>
-            {selectedAnswer === true ? (
+            {selectedAnswer === 'good' ? (
               <>
                 <button 
-                  onClick={() => proceedToNext(false)}
+                  onClick={() => proceedToNext('hard')}
                   style={{ flex: 1, padding: '16px', background: 'var(--panel-bg)', border: '1px solid var(--border-color)', borderRadius: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center', alignItems: 'center', transition: 'background 0.2s' }}
                 >
                   <RotateCcw color="var(--text-tertiary)" size={20} />
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>我记错了</span>
                 </button>
                 <button 
-                  onClick={() => proceedToNext(true)}
+                  onClick={() => proceedToNext('good')}
                   style={{ flex: 2, padding: '16px', background: 'var(--text-primary)', border: '1px solid var(--text-primary)', borderRadius: '16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center', alignItems: 'center', transition: 'opacity 0.2s' }}
                 >
                   <ArrowRight color="#ffffff" size={20} />
@@ -434,7 +450,7 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
               </>
             ) : (
               <button 
-                onClick={() => proceedToNext(false)}
+                onClick={() => proceedToNext('again')}
                 style={{ flex: 1, padding: '16px', background: 'var(--text-primary)', border: '1px solid var(--text-primary)', borderRadius: '16px', cursor: 'pointer', display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', transition: 'opacity 0.2s' }}
               >
                 <span style={{ fontSize: '1rem', color: '#fff', fontWeight: 500 }}>继续</span>

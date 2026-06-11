@@ -1,11 +1,18 @@
-// Initialize a new card with base properties for the weighted engine
-export const initCard = () => ({
-  appearances: 0,
-  weight: 50, // Base weight for a new unseen word
-  isStarred: false,
-  sentences: [],
-  sentenceIndex: 0
-});
+import { fsrs, createEmptyCard, Rating } from 'ts-fsrs';
+
+// Initialize FSRS engine with default parameters
+const f = fsrs({});
+
+// Initialize a new card with base properties for the FSRS engine
+export const initCard = () => {
+  const card = createEmptyCard();
+  return {
+    ...card,
+    isStarred: false,
+    sentences: [],
+    sentenceIndex: 0
+  };
+};
 
 // Record daily study activity for heatmap
 const recordStudyStat = () => {
@@ -20,58 +27,76 @@ const recordStudyStat = () => {
   }
 };
 
-// Update the card's weight based on the user's answer
-export const updateCardWeight = (card, isKnown) => {
+export const updateCardFSRS = (card, uiRating) => {
   recordStudyStat();
-  let w = card.weight !== undefined ? card.weight : 50;
   
-  if (isKnown) {
-    // Drop exactly one gear down
-    if (w >= 100) w = 80;
-    else if (w >= 80) w = 65;
-    else if (w >= 65) w = 50;
-    else if (w >= 50) w = 35;
-    else if (w >= 35) w = 25;
-    else if (w >= 25) w = 18;
-    else if (w >= 18) w = 12;
-    else if (w >= 12) w = 8;
-    else if (w >= 8) w = 5;
-    else if (w >= 5) w = 3;
-    else w = 1;
-  } else {
-    // Forgetting pushes the weight up significantly
-    if (w <= 3) w = 18;
-    else if (w <= 8) w = 35;
-    else if (w <= 25) w = 65;
-    else if (w <= 50) w = 80;
-    else w = 100;
-  }
+  // Transform our plain card into FSRS Card object format
+  const currentCard = {
+    due: new Date(card.due || Date.now()),
+    stability: card.stability || 0,
+    difficulty: card.difficulty || 0,
+    elapsed_days: card.elapsed_days || 0,
+    scheduled_days: card.scheduled_days || 0,
+    reps: card.reps || 0,
+    lapses: card.lapses || 0,
+    state: card.state !== undefined ? card.state : 0,
+    last_review: card.last_review ? new Date(card.last_review) : undefined,
+  };
 
+  let fsrsRating;
+  if (uiRating === 'good') fsrsRating = Rating.Good;
+  else if (uiRating === 'hard') fsrsRating = Rating.Hard;
+  else if (uiRating === 'again') fsrsRating = Rating.Again;
+  else fsrsRating = Rating.Good;
+
+  // FSRS calculate
+  const schedulingInfo = f.repeat(currentCard, new Date());
+  const nextLog = schedulingInfo[fsrsRating];
+  
   return {
     ...card,
-    appearances: (card.appearances || 0) + 1,
-    weight: w
+    ...nextLog.card, // Update due, stability, difficulty, state, reps, lapses, etc.
   };
 };
 
-// Select a random card from the deck based on their weights
-export const getWeightedRandomCard = (deck) => {
-  if (!deck || deck.length === 0) return null;
-  
-  // Calculate total weight
-  const totalWeight = deck.reduce((sum, card) => sum + (card.weight !== undefined ? card.weight : 50), 0);
-  
-  // Pick a random number between 0 and totalWeight
-  let random = Math.random() * totalWeight;
+// --- Scheduling Modes ---
+
+export const getDueCards = (deck, limitNew = 30) => {
+  const now = new Date();
+  const dueCards = [];
+  const newCards = [];
   
   for (const card of deck) {
-    const cardWeight = card.weight !== undefined ? card.weight : 50;
-    if (random < cardWeight) {
-      return card;
+    if (card.state === undefined || card.state === 0) {
+      newCards.push(card);
+    } else {
+      const dueDate = new Date(card.due);
+      if (dueDate <= now) {
+        dueCards.push(card);
+      }
     }
-    random -= cardWeight;
   }
   
-  // Fallback
+  return {
+    due: dueCards.sort((a, b) => new Date(a.due) - new Date(b.due)),
+    new: newCards.slice(0, limitNew)
+  };
+};
+
+export const getNextCardForMission = (deck, limitNew = 30) => {
+  const { due, new: newC } = getDueCards(deck, limitNew);
+  if (due.length > 0) return due[0];
+  if (newC.length > 0) return newC[0];
+  return null;
+};
+
+export const getNextInfiniteCard = (deck) => {
+  if (!deck || deck.length === 0) return null;
+  const now = new Date();
+  const due = deck.filter(c => c.state !== 0 && c.state !== undefined && new Date(c.due) <= now);
+  if (due.length > 0) {
+    due.sort((a, b) => new Date(a.due) - new Date(b.due));
+    return due[0];
+  }
   return deck[Math.floor(Math.random() * deck.length)];
 };

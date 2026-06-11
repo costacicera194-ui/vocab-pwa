@@ -7,6 +7,7 @@ import { syncToCloud, fetchFromCloud } from './services/sync';
 import Heatmap from './components/Heatmap';
 import LZString from 'lz-string';
 import localforage from 'localforage';
+import { getDueCards } from './utils/engine';
 
 function App() {
   const [deck, setDeck] = useState([]);
@@ -56,6 +57,7 @@ function App() {
   
   const [currentView, setCurrentView] = useState('home'); 
   const [filterFavorites, setFilterFavorites] = useState(false);
+  const [studyMode, setStudyMode] = useState('mission'); // 'mission' | 'infinite'
   
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('ai_api_key') || localStorage.getItem('gemini_api_key') || '');
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('github_token') || '');
@@ -143,10 +145,14 @@ function App() {
   }
 
   if (currentView === 'flashcard') {
-    return <FlashcardScreen deck={deck} updateDeck={setDeck} onBack={() => setCurrentView('home')} filterFavorites={filterFavorites} />;
+    return <FlashcardScreen deck={deck} updateDeck={setDeck} onBack={() => setCurrentView('home')} filterFavorites={filterFavorites} studyMode={studyMode} />;
   }
 
   const starredCount = deck.filter(c => c.isStarred).length;
+  const { due: dueCardsList, new: newCardsList } = getDueCards(deck, 30);
+  const dueCount = dueCardsList.length;
+  const newCount = newCardsList.length;
+  const missionCount = dueCount + newCount;
 
   return (
     <div style={{ paddingTop: '2rem', paddingBottom: '2rem', position: 'relative', display: 'flex', flexDirection: 'column', minHeight: '100vh', padding: '24px' }}>
@@ -236,26 +242,49 @@ function App() {
         <div style={{ fontSize: '7rem', fontWeight: 300, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.04em' }}>
           {deck.length}
         </div>
-        <div style={{ color: 'var(--text-tertiary)', fontWeight: 400, marginBottom: '4rem', fontSize: '1rem', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+        <div style={{ color: 'var(--text-tertiary)', fontWeight: 400, marginBottom: '2rem', fontSize: '1rem', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
           Total Words
         </div>
+        
+        {/* Mission Dashboard */}
+        {deck.length > 0 && (
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px 24px', marginBottom: '2rem', display: 'flex', gap: '32px', textAlign: 'center' }}>
+            <div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#3b82f6' }}>{dueCount}</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>待复习 (DUE)</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>{newCount}</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginTop: '4px' }}>新词 (NEW)</div>
+            </div>
+          </div>
+        )}
 
         <button 
-          onClick={() => { setFilterFavorites(false); setCurrentView('flashcard'); }}
-          disabled={deck.length === 0}
+          onClick={() => { setStudyMode('mission'); setFilterFavorites(false); setCurrentView('flashcard'); }}
+          disabled={missionCount === 0}
           className="btn-primary"
           style={{ width: '100%', padding: '1.25rem', fontSize: '1.1rem', marginBottom: '1rem', borderRadius: '16px' }}
         >
-          🚀 Study All (Infinite)
+          🎯 开始今日任务 ({missionCount})
         </button>
 
         <button 
-          onClick={() => { setFilterFavorites(true); setCurrentView('flashcard'); }}
+          onClick={() => { setStudyMode('infinite'); setFilterFavorites(false); setCurrentView('flashcard'); }}
+          disabled={deck.length === 0}
+          className="btn-secondary"
+          style={{ width: '100%', padding: '1.25rem', fontSize: '1.1rem', marginBottom: '1rem', borderRadius: '16px', background: 'transparent', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+        >
+          🚀 无尽火力 (Infinite)
+        </button>
+
+        <button 
+          onClick={() => { setStudyMode('infinite'); setFilterFavorites(true); setCurrentView('flashcard'); }}
           disabled={starredCount === 0}
           className="btn-secondary"
           style={{ width: '100%', padding: '1.25rem', fontSize: '1.1rem', marginBottom: '1rem', borderRadius: '16px', background: starredCount > 0 ? '#fffbeb' : 'transparent', borderColor: starredCount > 0 ? '#fde68a' : 'var(--border-color)', color: starredCount > 0 ? '#d97706' : 'var(--text-secondary)' }}
         >
-          ⭐ Study Favorites ({starredCount})
+          ⭐ 收藏薄 ({starredCount})
         </button>
         
         <button 
