@@ -67,7 +67,6 @@ export const fetchTranslation = async (word, sentence) => {
       if (parts.length > 1) {
         parts[1] = parts[1].replace(/^(其他考研常见含义|其他常见含义|其他含义)[:：\s]*/, '').trim();
         cleanResult = parts.join('___');
-        localStorage.setItem(cacheKey, parts[1]);
       }
     } else {
       cleanResult = cleanResult.replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();

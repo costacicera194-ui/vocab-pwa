@@ -135,9 +135,38 @@ export default function FlashcardScreen({ deck, updateDeck, onBack, filterFavori
     }
     
     setTranslatedWord(cleanWord);
+
+    // 1. Sentence-level cache lookup (Instant UI)
+    const sentences = currentCard.sentences || [];
+    const idx = currentCard.sentenceIndex || 0;
+    const currentSentence = sentences[idx];
+    
+    if (currentSentence && currentSentence.wordMeanings && currentSentence.wordMeanings[cleanWord]) {
+      const result = currentSentence.wordMeanings[cleanWord];
+      if (result && result.includes('___')) {
+        const [ctxMeaning, othMeaning] = result.split('___');
+        setTranslationText({ context: ctxMeaning, others: othMeaning });
+      } else {
+        setTranslationText({ context: result || '未找到释义', others: '' });
+      }
+      return;
+    }
+
+    // 2. Fetch from LLM if not cached
     setTranslationText({ context: '正在分析语境...', others: '' });
     const result = await fetchTranslation(cleanWord, sentenceEn);
     
+    // 3. Save to sentence-level cache to prevent future delays
+    if (currentSentence) {
+      const newWordMeanings = { ...(currentSentence.wordMeanings || {}), [cleanWord]: result };
+      const newSentences = [...sentences];
+      newSentences[idx] = { ...currentSentence, wordMeanings: newWordMeanings };
+      const newCard = { ...currentCard, sentences: newSentences };
+      const newDeck = deck.map(c => c.id === newCard.id ? newCard : c);
+      updateDeck(newDeck);
+      setCurrentCard(newCard);
+    }
+
     if (result && result.includes('___')) {
       const [ctxMeaning, othMeaning] = result.split('___');
       setTranslationText({ context: ctxMeaning, others: othMeaning });
