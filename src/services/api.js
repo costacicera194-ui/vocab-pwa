@@ -25,6 +25,9 @@ const fetchStream = async (url, options, onChunk) => {
   let done = false;
   let fullText = "";
   let buffer = "";
+  
+  // Throttle updates to ~30 FPS (30ms) to prevent React layout thrashing
+  let lastUpdate = 0;
 
   while (!done) {
     const { value, done: readerDone } = await reader.read();
@@ -41,7 +44,11 @@ const fetchStream = async (url, options, onChunk) => {
             const data = JSON.parse(line.slice(6));
             if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.content) {
               fullText += data.choices[0].delta.content;
-              if (onChunk) onChunk(fullText);
+              const now = Date.now();
+              if (onChunk && (now - lastUpdate > 30)) {
+                onChunk(fullText);
+                lastUpdate = now;
+              }
             }
           } catch (e) {
             // Partial JSON or other format issues
@@ -51,6 +58,10 @@ const fetchStream = async (url, options, onChunk) => {
       }
     }
   }
+  
+  // Guarantee a final flush
+  if (onChunk) onChunk(fullText);
+  
   return fullText;
 };
 
