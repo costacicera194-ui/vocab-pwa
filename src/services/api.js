@@ -60,16 +60,23 @@ export const fetchTranslation = async (word, sentence) => {
     const data = await response.json();
     const result = data.choices[0].message.content.trim();
 
-    if (cachedOthers) {
-      return `${result}___${cachedOthers}`;
-    } else {
-      if (result.includes('___')) {
-        const parts = result.split('___');
-        if (parts.length > 1) {
-          localStorage.setItem(cacheKey, parts[1].trim());
-        }
+    let cleanResult = result;
+    if (cleanResult.includes('___')) {
+      let parts = cleanResult.split('___');
+      parts[0] = parts[0].replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
+      if (parts.length > 1) {
+        parts[1] = parts[1].replace(/^(其他考研常见含义|其他常见含义|其他含义)[:：\s]*/, '').trim();
+        cleanResult = parts.join('___');
+        localStorage.setItem(cacheKey, parts[1]);
       }
-      return result;
+    } else {
+      cleanResult = cleanResult.replace(/^(在此句中的含义|句中含义|该词在句中的含义)[:：\s]*/, '').trim();
+    }
+
+    if (cachedOthers) {
+      return `${cleanResult}___${cachedOthers}`;
+    } else {
+      return cleanResult;
     }
   } catch (error) {
     console.error(error);
