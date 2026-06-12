@@ -187,8 +187,8 @@ function App() {
                 <input 
                   type="password"
                   placeholder="sk-..."
-                  value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
+                  value={aiApiKey}
+                  onChange={e => setAiApiKey(e.target.value)}
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '1rem', background: '#fafafa' }}
                 />
               </div>
@@ -219,7 +219,7 @@ function App() {
                 className="btn-primary" 
                 style={{ width: '100%' }} 
                 onClick={() => { 
-                  localStorage.setItem('ai_api_key', apiKey);
+                  localStorage.setItem('ai_api_key', aiApiKey);
                   localStorage.setItem('github_token', githubToken);
                   localStorage.setItem('gist_id', gistId);
                   setShowSettings(false); 
